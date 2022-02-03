@@ -41,9 +41,7 @@
 
 use std::{
     collections::HashMap,
-    f64,
-    fmt,
-    i64,
+    f64, fmt, i64,
     str::{self, FromStr},
     sync::Arc,
     time::SystemTime,
@@ -57,7 +55,7 @@ use tokio::time::delay_for as sleep;
 #[cfg(feature = "tokio")]
 use tokio::time::sleep;
 use tokio::time::Duration;
-use tracing::{debug, instrument};
+use tracing::log::debug;
 
 pub use super::routing::Route;
 use super::{HttpError, Request};
@@ -112,12 +110,7 @@ impl Ratelimiter {
     }
 
     fn _new(client: Arc<Client>, token: String) -> Self {
-        Self {
-            client,
-            global: Default::default(),
-            routes: Default::default(),
-            token,
-        }
+        Self { client, global: Default::default(), routes: Default::default(), token }
     }
 
     /// The routes mutex is a HashMap of each [`Route`] and their respective
@@ -156,11 +149,8 @@ impl Ratelimiter {
     /// Only error kind that may be returned is [`Error::Http`].
     ///
     /// [`Error::Http`]: crate::error::Error::Http
-    #[instrument]
     pub async fn perform(&self, req: RatelimitedRequest<'_>) -> Result<Response> {
-        let RatelimitedRequest {
-            req,
-        } = req;
+        let RatelimitedRequest { req } = req;
 
         loop {
             // This will block if another thread hit the global ratelimit.
@@ -258,7 +248,6 @@ pub struct Ratelimit {
 }
 
 impl Ratelimit {
-    #[instrument]
     pub async fn pre_hook(&mut self, route: &Route) {
         if self.limit() == 0 {
             return;
@@ -271,7 +260,7 @@ impl Ratelimit {
                 self.remaining = self.limit;
 
                 return;
-            },
+            }
         };
 
         let delay = match reset.duration_since(SystemTime::now()) {
@@ -283,7 +272,7 @@ impl Ratelimit {
                     self.remaining -= 1;
                 }
                 return;
-            },
+            }
         };
 
         if self.remaining() == 0 {
@@ -297,7 +286,6 @@ impl Ratelimit {
         self.remaining -= 1;
     }
 
-    #[instrument]
     pub async fn post_hook(&mut self, response: &Response, route: &Route) -> Result<bool> {
         if let Some(limit) = parse_header(response.headers(), "x-ratelimit-limit")? {
             self.limit = limit;
@@ -326,7 +314,7 @@ impl Ratelimit {
         Ok(if response.status() != StatusCode::TOO_MANY_REQUESTS {
             false
         } else if let Some(retry_after) = parse_header::<f64>(response.headers(), "retry-after")? {
-            debug!("Ratelimited on route {:?} for {:?}ms", route, retry_after);
+            debug!("Ratelimited on route {:?} for {:?}s", route, retry_after);
             sleep(Duration::from_secs_f64(retry_after)).await;
 
             true
@@ -362,12 +350,7 @@ impl Ratelimit {
 
 impl Default for Ratelimit {
     fn default() -> Self {
-        Self {
-            limit: i64::MAX,
-            remaining: i64::MAX,
-            reset: None,
-            reset_after: None,
-        }
+        Self { limit: i64::MAX, remaining: i64::MAX, reset: None, reset_after: None }
     }
 }
 
@@ -384,9 +367,7 @@ pub struct RatelimitedRequest<'a> {
 
 impl<'a> From<Request<'a>> for RatelimitedRequest<'a> {
     fn from(req: Request<'a>) -> Self {
-        Self {
-            req,
-        }
+        Self { req }
     }
 }
 
