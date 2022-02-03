@@ -220,6 +220,9 @@ impl Ratelimiter {
 
                 if !redo.unwrap_or(true) {
                     return Ok(response);
+                } else {
+                    let content = response.text().await.unwrap_or_default();
+                    debug!("{}", content);
                 }
             }
         }
