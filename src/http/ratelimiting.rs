@@ -206,6 +206,7 @@ impl Ratelimiter {
                             parse_header::<f64>(response.headers(), "retry-after")?
                         {
                             debug!("Ratelimited on route {:?} for {:?}s", route, retry_after);
+
                             sleep(Duration::from_secs_f64(retry_after)).await;
 
                             true
@@ -315,6 +316,18 @@ impl Ratelimit {
             false
         } else if let Some(retry_after) = parse_header::<f64>(response.headers(), "retry-after")? {
             debug!("Ratelimited on route {:?} for {:?}s", route, retry_after);
+
+            let rate_limits = response
+                .headers()
+                .iter()
+                .filter_map(|(name, value)| {
+                    name.as_str().contains("x-ratelimit").then(|| {
+                        format!("\n{}: {}", name.as_str(), value.to_str().unwrap_or_default())
+                    })
+                })
+                .collect::<String>();
+            debug!("{}", rate_limits);
+
             sleep(Duration::from_secs_f64(retry_after)).await;
 
             true
